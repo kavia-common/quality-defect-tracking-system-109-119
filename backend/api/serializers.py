@@ -23,7 +23,7 @@ class RootCauseSerializer(serializers.ModelSerializer):
         source="defect",
         queryset=Defect.objects.all(),
         write_only=True,
-        required=True,
+        required=False,
         help_text="Defect this root cause belongs to (1:1).",
     )
     defect = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -72,6 +72,11 @@ class RootCauseSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        # defect is mandatory on create (1:1 with Defect). We keep this requirement here
+        # so PATCH/updates don't have to re-send defect_id.
+        if not validated_data.get("defect"):
+            raise serializers.ValidationError({"defect_id": "This field is required."})
+
         # Ensure identified_at auto-set when appropriate.
         if validated_data.get("status") in {RootCause.Status.IDENTIFIED, RootCause.Status.APPROVED}:
             validated_data.setdefault("identified_at", timezone.now())
