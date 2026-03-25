@@ -19,6 +19,65 @@ from .serializers import CorrectiveActionSerializer, DefectSerializer, RootCause
 
 
 @api_view(["GET"])
+def export_csv_raw(request: Request) -> HttpResponse:
+    """Export defects list as a raw CSV file (defects.csv).
+
+    This endpoint exists specifically to support direct browser navigation-based downloads
+    from the React UI (window.location.href), avoiding fetch/axios/blob handling.
+
+    Response headers:
+    - Content-Type: text/csv
+    - Content-Disposition: attachment; filename="defects.csv"
+
+    Notes:
+    - We intentionally return a Django HttpResponse (not DRF Response) so it is a raw file download.
+    - This export currently returns all defects without applying filters.
+    """
+    qs = Defect.objects.all().order_by("-created_at")
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="defects.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            "id",
+            "title",
+            "area",
+            "severity",
+            "status",
+            "priority",
+            "reporter_name",
+            "assigned_to_name",
+            "occurred_at",
+            "due_date",
+            "created_at",
+            "updated_at",
+        ]
+    )
+
+    for d in qs.iterator():
+        writer.writerow(
+            [
+                d.id,
+                d.title,
+                d.area,
+                d.severity,
+                d.status,
+                d.priority,
+                d.reporter_name,
+                d.assigned_to_name,
+                d.occurred_at.isoformat() if d.occurred_at else "",
+                d.due_date.isoformat() if d.due_date else "",
+                d.created_at.isoformat() if d.created_at else "",
+                d.updated_at.isoformat() if d.updated_at else "",
+            ]
+        )
+
+    return response
+
+
+@api_view(["GET"])
 def health(request: Request) -> Response:
     """Health check endpoint used by deployment and tests."""
     return Response({"message": "Server is up!"})
