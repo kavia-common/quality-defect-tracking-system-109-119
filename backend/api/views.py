@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
+from rest_framework.renderers import BaseRenderer
 from django.contrib.auth import get_user_model
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -57,6 +58,33 @@ def _dt_ceil_utc(d: date) -> datetime:
     """Return end-of-day datetime for a date in UTC."""
     # Inclusive end-of-day: 23:59:59.999999
     return datetime.combine(d, time.max, tzinfo=timezone.utc)
+
+
+class CSVRenderer(BaseRenderer):
+    """
+    Minimal DRF renderer for CSV responses.
+
+    DRF viewsets/actions still perform content negotiation. When an action returns
+    a Django HttpResponse (text/csv) but the request 'Accept' header prefers JSON,
+    DRF can raise 406: "Could not satisfy the request Accept header."
+
+    By declaring a renderer for 'text/csv' on the action, we make negotiation
+    deterministic and avoid 406 while still returning a streamed CSV file.
+    """
+
+    media_type = "text/csv"
+    format = "csv"
+    charset = "utf-8"
+    render_style = "binary"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        # We return an HttpResponse directly in the view, so this should not be used,
+        # but DRF requires a renderer to satisfy negotiation. Keep it safe anyway.
+        if data is None:
+            return b""
+        if isinstance(data, (bytes, bytearray)):
+            return bytes(data)
+        return str(data).encode(self.charset)
 
 
 class DefectViewSet(viewsets.ModelViewSet):
@@ -267,7 +295,7 @@ class DefectViewSet(viewsets.ModelViewSet):
             [{"date": d.isoformat(), "count": buckets[d]} for d in sorted(buckets.keys())]
         )
 
-    @action(detail=True, methods=["get"], url_path="audit-export")
+    @action(detail=True, methods=["get"], url_path="audit-export", renderer_classes=[CSVRenderer])
     def audit_export(self, request: Request, pk: str | None = None) -> HttpResponse:
         """Export a defect audit report as CSV.
 
@@ -280,7 +308,7 @@ class DefectViewSet(viewsets.ModelViewSet):
         defect = self.get_object()
         root_cause = getattr(defect, "root_cause", None)
 
-        response = HttpResponse(content_type="text/csv")
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = f'attachment; filename="defect_{defect.id}_audit.csv"'
 
         writer = csv.writer(response)
