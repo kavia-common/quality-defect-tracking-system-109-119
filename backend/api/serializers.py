@@ -79,7 +79,8 @@ class RootCauseSerializer(serializers.ModelSerializer):
         # Enforce transition checks.
         new_status = attrs.get("status", getattr(instance, "status", None))
         if instance is not None and "status" in attrs:
-            if not instance.can_transition_to(new_status):
+            # Treat "same status" as a no-op to support clients that re-send status on save.
+            if new_status != instance.status and not instance.can_transition_to(new_status):
                 raise serializers.ValidationError(
                     {"status": f"Invalid status transition {instance.status} -> {new_status}."}
                 )
