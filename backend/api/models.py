@@ -167,7 +167,10 @@ class Defect(models.Model):
 
 
 class RootCause(models.Model):
-    """Root cause analysis details for a defect (1:1)."""
+    """Root cause analysis details for a defect (1:1).
+
+    Includes both free-text analysis and structured "5-Why" fields.
+    """
 
     class Status(models.TextChoices):
         NOT_STARTED = "NOT_STARTED", "Not started"
@@ -186,6 +189,14 @@ class RootCause(models.Model):
 
     summary = models.TextField(blank=True, default="")
     analysis = models.TextField(blank=True, default="")
+
+    # Structured 5-Why analysis fields (UI uses these).
+    why_1 = models.TextField(blank=True, default="")
+    why_2 = models.TextField(blank=True, default="")
+    why_3 = models.TextField(blank=True, default="")
+    why_4 = models.TextField(blank=True, default="")
+    why_5 = models.TextField(blank=True, default="")
+
     identified_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -241,6 +252,33 @@ class RootCause(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"RootCause(defect_id={self.defect_id})"
+
+
+class DefectStatusHistory(models.Model):
+    """Audit log for defect status transitions (for export and traceability)."""
+
+    defect = models.ForeignKey(
+        Defect,
+        on_delete=models.CASCADE,
+        related_name="status_history",
+    )
+    from_status = models.CharField(max_length=32, blank=True, default="")
+    to_status = models.CharField(max_length=32)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="defect_status_changes",
+    )
+    note = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["-changed_at"]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"DefectStatusHistory(defect_id={self.defect_id}, {self.from_status}->{self.to_status})"
 
 
 class CorrectiveAction(models.Model):
