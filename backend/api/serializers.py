@@ -26,7 +26,15 @@ class RootCauseSerializer(serializers.ModelSerializer):
         required=False,
         help_text="Defect this root cause belongs to (1:1).",
     )
-    defect = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Backwards/alternate client support: some clients may send `defect` on create.
+    # Keep it write-only to avoid changing read representation (read uses `defect` id).
+    defect = serializers.PrimaryKeyRelatedField(
+        queryset=Defect.objects.all(),
+        required=False,
+        write_only=True,
+        help_text="Alternate write alias for defect_id. Prefer defect_id.",
+    )
+
     identified_by = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         required=False,
@@ -52,8 +60,23 @@ class RootCauseSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate(self, attrs):
-        # Enforce model clean + transition checks.
+        # Normalize `defect` alias into the canonical `defect` field used by the model.
+        # If both are provided, defect_id takes precedence since it's the documented API.
+        defect_obj = attrs.get("defect")
+        if defect_obj is None and "defect_id" in attrs:
+            defect_obj = attrs.get("defect_id")
+            attrs["defect"] = defect_obj
+
         instance: RootCause | None = getattr(self, "instance", None)
+
+        # Enforce 1:1 constraint at serializer level to avoid IntegrityError (500).
+        if instance is None and defect_obj is not None:
+            if RootCause.objects.filter(defect=defect_obj).exists():
+                raise serializers.ValidationError(
+                    {"defect_id": "Root cause already exists for this defect."}
+                )
+
+        # Enforce transition checks.
         new_status = attrs.get("status", getattr(instance, "status", None))
         if instance is not None and "status" in attrs:
             if not instance.can_transition_to(new_status):
