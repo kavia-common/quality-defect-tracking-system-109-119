@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,10 +84,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Canonical SQLite DB alignment:
+# Prefer SQLITE_DB env var (deployment/runtime can set it). For local dev in this
+# multi-container repo, default to the database container's canonical file.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': os.getenv(
+            'SQLITE_DB',
+            '/home/kavia/workspace/code-generation/quality-defect-tracking-system-109-120/database/myapp.db'
+        ),
     }
 }
 
