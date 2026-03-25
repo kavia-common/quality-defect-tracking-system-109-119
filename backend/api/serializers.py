@@ -182,6 +182,13 @@ class DefectSerializer(serializers.ModelSerializer):
             "description",
             "severity",
             "status",
+            # UI triage/display fields
+            "priority",
+            "area",
+            "tags",
+            "reporter_name",
+            "assigned_to_name",
+            # user-based fields (existing)
             "assignee",
             "assignee_detail",
             "reported_by",

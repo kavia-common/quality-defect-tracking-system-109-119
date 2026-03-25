@@ -19,7 +19,12 @@ from django.utils import timezone
 
 
 class Defect(models.Model):
-    """A quality defect record with workflow status and ownership."""
+    """A quality defect record with workflow status and ownership.
+
+    Note: The frontend UI captures additional triage/display fields (priority/area/tags
+    and free-text reporter/assignee names). These fields are persisted here so they
+    can be shown consistently after create/edit.
+    """
 
     class Severity(models.TextChoices):
         LOW = "LOW", "Low"
@@ -42,6 +47,37 @@ class Defect(models.Model):
         max_length=16, choices=Severity.choices, default=Severity.MEDIUM
     )
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.OPEN)
+
+    # --- UI triage fields (previously UI-only, now persisted) ---
+    priority = models.CharField(
+        max_length=2,
+        blank=True,
+        default="P3",
+        help_text="UI priority label (P1, P2, P3).",
+    )
+    area = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Business/production area where the defect occurred (UI field).",
+    )
+    tags = models.JSONField(
+        blank=True,
+        default=list,
+        help_text="List of tag strings (UI field).",
+    )
+    reporter_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Free-text 'Reported by' captured by UI (not tied to auth users).",
+    )
+    assigned_to_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Free-text 'Assigned to' captured by UI (not tied to auth users).",
+    )
 
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
