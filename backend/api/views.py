@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
+from django.contrib.auth import get_user_model
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -20,6 +21,30 @@ from .serializers import CorrectiveActionSerializer, DefectSerializer, RootCause
 def health(request: Request) -> Response:
     """Health check endpoint used by deployment and tests."""
     return Response({"message": "Server is up!"})
+
+
+@api_view(["POST"])
+def resolve_user(request: Request) -> Response:
+    """Resolve (or create) a user by username.
+
+    This supports the lightweight demo UI which captures corrective-action owner as
+    free-text. Backend corrective actions require `owner` to be a valid user id,
+    so the frontend can call this endpoint first to obtain an id.
+
+    Body:
+      { "username": "<string>" }
+
+    Response:
+      { "id": <int>, "username": "<string>" }
+    """
+    User = get_user_model()
+    username = (request.data.get("username") or "").strip()
+    if not username:
+        return Response({"username": "This field is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Keep it simple: create user if missing; no password required for this demo.
+    user, _created = User.objects.get_or_create(username=username, defaults={"email": ""})
+    return Response({"id": user.id, "username": user.username}, status=status.HTTP_200_OK)
 
 
 def _dt_floor_utc(d: date) -> datetime:
