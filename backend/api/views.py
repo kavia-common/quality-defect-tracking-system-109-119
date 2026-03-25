@@ -44,7 +44,8 @@ def resolve_user(request: Request) -> Response:
 
     # Keep it simple: create user if missing; no password required for this demo.
     user, _created = User.objects.get_or_create(username=username, defaults={"email": ""})
-    return Response({"id": user.id, "username": user.username}, status=status.HTTP_200_OK)
+    # Return 201 to match the documented OpenAPI contract for this endpoint.
+    return Response({"id": user.id, "username": user.username}, status=status.HTTP_201_CREATED)
 
 
 def _dt_floor_utc(d: date) -> datetime:
