@@ -374,6 +374,61 @@ class DefectViewSet(viewsets.ModelViewSet):
 
         return response
 
+    @action(detail=False, methods=["get"], url_path="export", renderer_classes=[CSVRenderer])
+    def export_csv(self, request: Request) -> HttpResponse:
+        """Export defects list as a CSV file (defects.csv).
+
+        This is intended for the UI "Export CSV" button on the defects list page.
+        The export respects the same filtering query parameters as the list endpoint
+        (e.g. status=OPEN, severity=HIGH).
+
+        Response headers:
+        - Content-Type: text/csv
+        - Content-Disposition: attachment; filename="defects.csv"
+        """
+        qs = self.get_queryset()
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="defects.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "id",
+                "title",
+                "area",
+                "severity",
+                "status",
+                "priority",
+                "reporter_name",
+                "assigned_to_name",
+                "occurred_at",
+                "due_date",
+                "created_at",
+                "updated_at",
+            ]
+        )
+
+        for d in qs.iterator():
+            writer.writerow(
+                [
+                    d.id,
+                    d.title,
+                    d.area,
+                    d.severity,
+                    d.status,
+                    d.priority,
+                    d.reporter_name,
+                    d.assigned_to_name,
+                    d.occurred_at.isoformat() if d.occurred_at else "",
+                    d.due_date.isoformat() if d.due_date else "",
+                    d.created_at.isoformat() if d.created_at else "",
+                    d.updated_at.isoformat() if d.updated_at else "",
+                ]
+            )
+
+        return response
+
 
 class RootCauseViewSet(viewsets.ModelViewSet):
     """
